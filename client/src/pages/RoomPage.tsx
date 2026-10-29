@@ -1,11 +1,22 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ParticipantList from "../components/ParticipantList";
+import VideoPlayer from "../components/VideoPlayer";
 import { useRoom } from "../hooks/useRoom";
+import { canControlPlayback } from "../utils/permissions";
 
 function RoomPage() {
   const { roomId = "" } = useParams();
-  const { room, joinRoom, leaveRoom } = useRoom();
+  const {
+    room,
+    joinRoom,
+    leaveRoom,
+    sendPlay,
+    sendPause,
+    sendSeek,
+    sendChangeVideo,
+    notice,
+  } = useRoom();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
@@ -103,6 +114,12 @@ function RoomPage() {
         </div>
       </header>
 
+      {notice && (
+        <p className="room-notice" role="status">
+          {notice}
+        </p>
+      )}
+
       {error && (
         <p className="error-message room-error" role="alert">
           {error}
@@ -117,9 +134,14 @@ function RoomPage() {
             currentUserId={room.userId}
           />
         </section>
-        <section className="video-placeholder">
-          Video player coming in Phase 3
-        </section>
+        <VideoPlayer
+          videoState={room.videoState}
+          canControl={canControlPlayback(room.role)}
+          onPlay={sendPlay}
+          onPause={sendPause}
+          onSeek={sendSeek}
+          onChangeVideo={sendChangeVideo}
+        />
       </div>
     </main>
   );

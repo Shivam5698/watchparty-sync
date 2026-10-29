@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -25,12 +26,22 @@ interface RoomEventPayload {
   participants: Participant[];
 }
 
+interface ActionDeniedPayload {
+  action: string;
+  message: string;
+}
+
 interface RoomContextValue {
   connected: boolean;
   room: RoomInfo | null;
+  notice: string | null;
   createRoom: (username: string) => Promise<string>;
   joinRoom: (roomId: string, username: string) => Promise<void>;
   leaveRoom: () => void;
+  sendPlay: (currentTime: number) => void;
+  sendPause: (currentTime: number) => void;
+  sendSeek: (time: number) => void;
+  sendChangeVideo: (videoId: string) => void;
 }
 
 export const RoomContext = createContext<RoomContextValue | undefined>(
@@ -44,10 +55,27 @@ interface RoomProviderProps {
 export function RoomProvider({ children }: RoomProviderProps) {
   const [connected, setConnected] = useState(false);
   const [room, setRoom] = useState<RoomInfo | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleConnect = () => setConnected(true);
     const handleDisconnect = () => setConnected(false);
+    const handleSyncState = (videoState: VideoState) => {
+      setRoom((currentRoom) =>
+        currentRoom ? { ...currentRoom, videoState } : null,
+      );
+    };
+    const handleActionDenied = ({ message }: ActionDeniedPayload) => {
+      setNotice(message);
+      if (noticeTimeout.current) {
+        clearTimeout(noticeTimeout.current);
+      }
+      noticeTimeout.current = setTimeout(() => {
+        setNotice(null);
+        noticeTimeout.current = null;
+      }, 3000);
+    };
     const handleRoomUpdate = (payload: RoomEventPayload) => {
       setRoom((currentRoom) =>
         currentRoom
@@ -60,6 +88,8 @@ export function RoomProvider({ children }: RoomProviderProps) {
     socket.on("disconnect", handleDisconnect);
     socket.on("user_joined", handleRoomUpdate);
     socket.on("user_left", handleRoomUpdate);
+    socket.on("sync_state", handleSyncState);
+    socket.on("action_denied", handleActionDenied);
     setConnected(socket.connected);
     socket.connect();
 
@@ -68,6 +98,11 @@ export function RoomProvider({ children }: RoomProviderProps) {
       socket.off("disconnect", handleDisconnect);
       socket.off("user_joined", handleRoomUpdate);
       socket.off("user_left", handleRoomUpdate);
+      socket.off("sync_state", handleSyncState);
+      socket.off("action_denied", handleActionDenied);
+      if (noticeTimeout.current) {
+        clearTimeout(noticeTimeout.current);
+      }
     };
   }, []);
 
@@ -116,9 +151,36 @@ export function RoomProvider({ children }: RoomProviderProps) {
     setRoom(null);
   }, []);
 
+  const sendPlay = useCallback((currentTime: number) => {
+    socket.emit("play", { currentTime });
+  }, []);
+
+  const sendPause = useCallback((currentTime: number) => {
+    socket.emit("pause", { currentTime });
+  }, []);
+
+  const sendSeek = useCallback((time: number) => {
+    socket.emit("seek", { time });
+  }, []);
+
+  const sendChangeVideo = useCallback((videoId: string) => {
+    socket.emit("change_video", { videoId });
+  }, []);
+
   return (
     <RoomContext.Provider
-      value={{ connected, room, createRoom, joinRoom, leaveRoom }}
+      value={{
+        connected,
+        room,
+        notice,
+        createRoom,
+        joinRoom,
+        leaveRoom,
+        sendPlay,
+        sendPause,
+        sendSeek,
+        sendChangeVideo,
+      }}
     >
       {children}
     </RoomContext.Provider>
