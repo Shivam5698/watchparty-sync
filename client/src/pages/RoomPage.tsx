@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ChatBox from "../components/ChatBox";
 import ParticipantList from "../components/ParticipantList";
+import PendingRequests from "../components/PendingRequests";
 import RoleBadge from "../components/RoleBadge";
 import VideoPlayer from "../components/VideoPlayer";
 import { useRoom } from "../hooks/useRoom";
@@ -21,6 +23,13 @@ function RoomPage() {
     removeParticipant,
     transferHost,
     removalNotice,
+    requests,
+    hasPendingRequest,
+    chat,
+    reconnecting,
+    sendRequest,
+    resolveRequest,
+    sendChat,
   } = useRoom();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -105,29 +114,11 @@ function RoomPage() {
 
   return (
     <main className="room-layout">
-      <header className="room-header">
-        <div className="room-title-area">
-          <h1>Room {room.roomId}</h1>
-          <RoleBadge role={room.role} />
-        </div>
-        <div className="room-header-actions">
-          <button
-            className="action-button secondary-button room-action-button"
-            type="button"
-            onClick={handleCopyInvite}
-          >
-            {copied ? "Copied!" : "Copy invite link"}
-          </button>
-          <button
-            className="action-button leave-button room-action-button"
-            type="button"
-            onClick={handleLeave}
-          >
-            Leave
-          </button>
-        </div>
-      </header>
-
+      {reconnecting && (
+        <p className="reconnecting-banner" role="status">
+          Connection lost. Reconnecting...
+        </p>
+      )}
       {notice && (
         <p className="room-notice" role="status">
           {notice}
@@ -141,25 +132,61 @@ function RoomPage() {
       )}
 
       <div className="room-content">
-        <section className="room-panel participants-panel">
-          <h2>Participants ({room.participants.length})</h2>
-          <ParticipantList
-            participants={room.participants}
-            currentUserId={room.userId}
-            isHost={room.role === "host"}
-            onAssignRole={assignRole}
-            onRemove={removeParticipant}
-            onTransferHost={transferHost}
+        <section className="room-main-column">
+          <header className="room-header">
+            <div className="room-title-area">
+              <h1>Room {room.roomId}</h1>
+              <RoleBadge role={room.role} />
+            </div>
+            <div className="room-header-actions">
+              <button
+                className="action-button secondary-button room-action-button"
+                type="button"
+                onClick={handleCopyInvite}
+              >
+                {copied ? "Copied!" : "Copy invite link"}
+              </button>
+              <button
+                className="action-button leave-button room-action-button"
+                type="button"
+                onClick={handleLeave}
+              >
+                Leave
+              </button>
+            </div>
+          </header>
+          <VideoPlayer
+            videoState={room.videoState}
+            canControl={canControlPlayback(room.role)}
+            onPlay={sendPlay}
+            onPause={sendPause}
+            onSeek={sendSeek}
+            onChangeVideo={sendChangeVideo}
+            onRequest={sendRequest}
+            hasPendingRequest={hasPendingRequest}
           />
         </section>
-        <VideoPlayer
-          videoState={room.videoState}
-          canControl={canControlPlayback(room.role)}
-          onPlay={sendPlay}
-          onPause={sendPause}
-          onSeek={sendSeek}
-          onChangeVideo={sendChangeVideo}
-        />
+        <aside className="room-sidebar">
+          <section className="room-panel participants-panel">
+            <h2>Participants ({room.participants.length})</h2>
+            <ParticipantList
+              participants={room.participants}
+              currentUserId={room.userId}
+              isHost={room.role === "host"}
+              onAssignRole={assignRole}
+              onRemove={removeParticipant}
+              onTransferHost={transferHost}
+            />
+          </section>
+          {canControlPlayback(room.role) && (
+            <PendingRequests requests={requests} onResolve={resolveRequest} />
+          )}
+          <ChatBox
+            messages={chat}
+            currentUserId={room.userId}
+            onSend={sendChat}
+          />
+        </aside>
       </div>
     </main>
   );

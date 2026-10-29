@@ -102,6 +102,7 @@ export function useYouTubePlayer({
 }: UseYouTubePlayerOptions): {
   isReady: boolean;
   applyState: (state: VideoState) => void;
+  getCurrentTime: () => number;
 } {
   const [isReady, setIsReady] = useState(false);
   const playerRef = useRef<YouTubePlayer | null>(null);
@@ -114,6 +115,11 @@ export function useYouTubePlayer({
   const suppressTimerRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
   const loadedVideoIdRef = useRef<string | null>(null);
+
+  const getCurrentTime = useCallback(() => {
+    const player = playerRef.current;
+    return player && isReadyRef.current ? player.getCurrentTime() : 0;
+  }, []);
 
   useEffect(() => {
     canControlRef.current = canControl;
@@ -285,5 +291,5 @@ export function useYouTubePlayer({
     }
   }, []);
 
-  return { isReady, applyState };
+  return { isReady, applyState, getCurrentTime };
 }

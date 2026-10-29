@@ -7,7 +7,15 @@ import {
   type ReactNode,
 } from "react";
 import { socket } from "../services/socket";
-import type { Participant, Role, RoomInfo, VideoState } from "../types";
+import type {
+  ChatMessage,
+  Participant,
+  PlaybackAction,
+  PlaybackRequest,
+  Role,
+  RoomInfo,
+  VideoState,
+} from "../types";
 
 type RoomAck<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -20,6 +28,7 @@ interface RoomResponse {
 
 interface JoinRoomResponse extends RoomResponse {
   videoState: VideoState;
+  chatHistory?: ChatMessage[];
 }
 
 interface RoomEventPayload {
@@ -46,6 +55,25 @@ interface ActionDeniedPayload {
   message: string;
 }
 
+interface RequestsUpdatedPayload {
+  requests: PlaybackRequest[];
+}
+
+interface RequestResolvedPayload {
+  requestId: string;
+  approved: boolean;
+  action: PlaybackAction;
+  byUsername: string;
+}
+
+interface RoomSession {
+  roomId: string;
+  username: string;
+}
+
+type RequestAck = RoomAck<{ requestId: string }>;
+type ChatAck = RoomAck<Record<string, never>>;
+
 function withParticipants(
   room: RoomInfo,
   participants: Participant[],
@@ -65,6 +93,10 @@ interface RoomContextValue {
   room: RoomInfo | null;
   notice: string | null;
   removalNotice: string | null;
+  requests: PlaybackRequest[];
+  hasPendingRequest: boolean;
+  chat: ChatMessage[];
+  reconnecting: boolean;
   createRoom: (username: string) => Promise<string>;
   joinRoom: (roomId: string, username: string) => Promise<void>;
   leaveRoom: () => void;
@@ -72,6 +104,12 @@ interface RoomContextValue {
   assignRole: (userId: string, role: Role) => void;
   removeParticipant: (userId: string) => void;
   transferHost: (userId: string) => void;
+  sendRequest: (
+    action: PlaybackAction,
+    payload: object,
+  ) => Promise<void>;
+  resolveRequest: (requestId: string, approve: boolean) => void;
+  sendChat: (text: string) => Promise<void>;
   sendPlay: (currentTime: number) => void;
   sendPause: (currentTime: number) => void;
   sendSeek: (time: number) => void;
@@ -91,17 +129,77 @@ export function RoomProvider({ children }: RoomProviderProps) {
   const [room, setRoom] = useState<RoomInfo | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removalNotice, setRemovalNotice] = useState<string | null>(null);
+  const [requests, setRequests] = useState<PlaybackRequest[]>([]);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [reconnecting, setReconnecting] = useState(false);
   const roomRef = useRef<RoomInfo | null>(room);
   roomRef.current = room;
+  const session = useRef<RoomSession | null>(null);
+  const hadDisconnect = useRef(false);
   const noticeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const handleConnect = () => setConnected(true);
-    const handleDisconnect = () => setConnected(false);
+    const handleConnect = () => {
+      setConnected(true);
+      if (!hadDisconnect.current || !session.current) {
+        return;
+      }
+
+      const currentSession = session.current;
+      socket.emit(
+        "join_room",
+        {
+          roomId: currentSession.roomId,
+          username: currentSession.username,
+        },
+        (ack: RoomAck<JoinRoomResponse>) => {
+          hadDisconnect.current = false;
+          if (ack.ok === false) {
+            session.current = null;
+            setRoom(null);
+            setRequests([]);
+            setChat([]);
+            setHasPendingRequest(false);
+            setReconnecting(false);
+            setRemovalNotice(
+              "Connection was lost and the room is no longer available",
+            );
+            return;
+          }
+
+          setRoom(ack);
+          setChat(ack.chatHistory ?? []);
+          setRequests([]);
+          setHasPendingRequest(false);
+          setReconnecting(false);
+          setNotice("Reconnected");
+        },
+      );
+    };
+    const handleDisconnect = (reason: string) => {
+      setConnected(false);
+      if (session.current && reason !== "io client disconnect") {
+        setReconnecting(true);
+        hadDisconnect.current = true;
+      }
+    };
     const handleSyncState = (videoState: VideoState) => {
       setRoom((currentRoom) =>
         currentRoom ? { ...currentRoom, videoState } : null,
       );
+    };
+    const handleRequestsUpdated = (payload: RequestsUpdatedPayload) => {
+      setRequests(payload.requests);
+    };
+    const handleRequestResolved = (payload: RequestResolvedPayload) => {
+      setHasPendingRequest(false);
+      setNotice(
+        `Your request was ${payload.approved ? "approved" : "rejected"} by ${payload.byUsername}`,
+      );
+    };
+    const handleChatMessage = (message: ChatMessage) => {
+      setChat((currentChat) => [...currentChat, message].slice(-100));
     };
     const handleActionDenied = ({ message }: ActionDeniedPayload) => {
       setNotice(message);
@@ -139,7 +237,12 @@ export function RoomProvider({ children }: RoomProviderProps) {
       payload: ParticipantRemovedPayload,
     ) => {
       if (roomRef.current?.userId === payload.userId) {
+        session.current = null;
+        hadDisconnect.current = false;
         setRoom(null);
+        setRequests([]);
+        setChat([]);
+        setHasPendingRequest(false);
         setRemovalNotice("You were removed from the room by the host");
         return;
       }
@@ -174,6 +277,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
     socket.on("role_assigned", handleRoleAssigned);
     socket.on("participant_removed", handleParticipantRemoved);
     socket.on("host_transferred", handleHostTransferred);
+    socket.on("requests_updated", handleRequestsUpdated);
+    socket.on("request_resolved", handleRequestResolved);
+    socket.on("chat_message", handleChatMessage);
     setConnected(socket.connected);
     socket.connect();
 
@@ -187,11 +293,22 @@ export function RoomProvider({ children }: RoomProviderProps) {
       socket.off("role_assigned", handleRoleAssigned);
       socket.off("participant_removed", handleParticipantRemoved);
       socket.off("host_transferred", handleHostTransferred);
+      socket.off("requests_updated", handleRequestsUpdated);
+      socket.off("request_resolved", handleRequestResolved);
+      socket.off("chat_message", handleChatMessage);
       if (noticeTimeout.current) {
         clearTimeout(noticeTimeout.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!room) {
+      setRequests([]);
+      setChat([]);
+      setHasPendingRequest(false);
+    }
+  }, [room]);
 
   const createRoom = useCallback(
     (username: string) =>
@@ -206,6 +323,11 @@ export function RoomProvider({ children }: RoomProviderProps) {
             }
 
             setRoom({ ...ack, videoState: null });
+            session.current = { roomId: ack.roomId, username };
+            hadDisconnect.current = false;
+            setRequests([]);
+            setChat([]);
+            setHasPendingRequest(false);
             resolve(ack.roomId);
           },
         );
@@ -226,6 +348,11 @@ export function RoomProvider({ children }: RoomProviderProps) {
             }
 
             setRoom(ack);
+            session.current = { roomId, username };
+            hadDisconnect.current = false;
+            setRequests([]);
+            setChat(ack.chatHistory ?? []);
+            setHasPendingRequest(false);
             resolve();
           },
         );
@@ -235,7 +362,12 @@ export function RoomProvider({ children }: RoomProviderProps) {
 
   const leaveRoom = useCallback(() => {
     socket.emit("leave_room");
+    session.current = null;
+    hadDisconnect.current = false;
     setRoom(null);
+    setRequests([]);
+    setChat([]);
+    setHasPendingRequest(false);
   }, []);
 
   const clearRemovalNotice = useCallback(() => {
@@ -253,6 +385,48 @@ export function RoomProvider({ children }: RoomProviderProps) {
   const transferHost = useCallback((userId: string) => {
     socket.emit("transfer_host", { userId });
   }, []);
+
+  const sendRequest = useCallback(
+    (action: PlaybackAction, payload: object) =>
+      new Promise<void>((resolve, reject) => {
+        socket.emit(
+          "request_action",
+          { action, payload },
+          (ack: RequestAck) => {
+            if (ack.ok === false) {
+              reject(new Error(ack.error));
+              return;
+            }
+
+            setHasPendingRequest(true);
+            resolve();
+          },
+        );
+      }),
+    [],
+  );
+
+  const resolveRequest = useCallback(
+    (requestId: string, approve: boolean) => {
+      socket.emit("resolve_request", { requestId, approve });
+    },
+    [],
+  );
+
+  const sendChat = useCallback(
+    (text: string) =>
+      new Promise<void>((resolve, reject) => {
+        socket.emit("chat_message", { text }, (ack: ChatAck) => {
+          if (ack.ok === false) {
+            reject(new Error(ack.error));
+            return;
+          }
+
+          resolve();
+        });
+      }),
+    [],
+  );
 
   const sendPlay = useCallback((currentTime: number) => {
     socket.emit("play", { currentTime });
@@ -277,6 +451,10 @@ export function RoomProvider({ children }: RoomProviderProps) {
         room,
         notice,
         removalNotice,
+        requests,
+        hasPendingRequest,
+        chat,
+        reconnecting,
         createRoom,
         joinRoom,
         leaveRoom,
@@ -284,6 +462,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
         assignRole,
         removeParticipant,
         transferHost,
+        sendRequest,
+        resolveRequest,
+        sendChat,
         sendPlay,
         sendPause,
         sendSeek,

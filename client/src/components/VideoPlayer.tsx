@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import RequestControls from "./RequestControls";
 import { useYouTubePlayer } from "../hooks/useYouTubePlayer";
-import type { VideoState } from "../types";
+import type { PlaybackAction, VideoState } from "../types";
 import { extractVideoId } from "../utils/youtube";
 
 interface VideoPlayerProps {
@@ -10,6 +11,8 @@ interface VideoPlayerProps {
   onPause: (time: number) => void;
   onSeek: (time: number) => void;
   onChangeVideo: (videoId: string) => void;
+  onRequest?: (action: PlaybackAction, payload: object) => Promise<void>;
+  hasPendingRequest?: boolean;
 }
 
 export default function VideoPlayer({
@@ -19,12 +22,14 @@ export default function VideoPlayer({
   onPause,
   onSeek,
   onChangeVideo,
+  onRequest,
+  hasPendingRequest = false,
 }: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [videoUrl, setVideoUrl] = useState("");
   const [error, setError] = useState("");
   const [hasSubmittedVideo, setHasSubmittedVideo] = useState(false);
-  const { isReady, applyState } = useYouTubePlayer({
+  const { isReady, applyState, getCurrentTime } = useYouTubePlayer({
     containerRef,
     canControl,
     onPlay,
@@ -102,6 +107,17 @@ export default function VideoPlayer({
         <p className="video-player-caption">
           Only the host and moderators can control playback
         </p>
+      )}
+      {!canControl && (
+        <RequestControls
+          onRequest={
+            onRequest ??
+            (() =>
+              Promise.reject(new Error("Playback requests are unavailable")))
+          }
+          getCurrentTime={getCurrentTime}
+          hasPending={hasPendingRequest}
+        />
       )}
     </section>
   );
