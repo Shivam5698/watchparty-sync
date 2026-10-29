@@ -39,7 +39,47 @@ export class Room {
   }
 
   getVideoState(): VideoState {
-    return this.videoState;
+    const videoState = { ...this.videoState };
+    if (videoState.playState === "playing") {
+      videoState.currentTime += (Date.now() - videoState.updatedAt) / 1000;
+    }
+    return videoState;
+  }
+
+  play(time: number): void {
+    this.videoState = {
+      ...this.videoState,
+      playState: "playing",
+      currentTime: time,
+      updatedAt: Date.now(),
+    };
+  }
+
+  pause(time: number): void {
+    this.videoState = {
+      ...this.videoState,
+      playState: "paused",
+      currentTime: time,
+      updatedAt: Date.now(),
+    };
+  }
+
+  seek(time: number): void {
+    this.videoState = {
+      ...this.videoState,
+      currentTime: time,
+      updatedAt: Date.now(),
+    };
+  }
+
+  changeVideo(videoId: string): void {
+    this.videoState = {
+      ...this.videoState,
+      videoId,
+      currentTime: 0,
+      playState: "playing",
+      updatedAt: Date.now(),
+    };
   }
 
   isEmpty(): boolean {
