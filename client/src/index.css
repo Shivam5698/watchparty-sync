@@ -196,6 +196,17 @@ input {
   overflow-wrap: anywhere;
 }
 
+.room-title-area {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.room-title-area .role-badge {
+  font-size: 0.72rem;
+}
+
 .room-header-actions {
   display: flex;
   flex-shrink: 0;
@@ -260,10 +271,61 @@ input {
 }
 
 .participant-name {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   color: #e5e5eb;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.participant-row-details {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.participant-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.participant-role-select,
+.participant-action-button {
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 1px solid #46414f;
+  border-radius: 6px;
+  background: #22232c;
+  color: #e5e5eb;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.participant-role-select {
+  max-width: 92px;
+}
+
+.participant-action-button {
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.participant-action-button:hover {
+  background: #34313e;
+}
+
+.remove-participant-button {
+  border-color: #633b46;
+  background: #38252d;
+  color: #ffb0b0;
+}
+
+.remove-participant-button:hover {
+  background: #4a2d37;
 }
 
 .current-user-tag {
@@ -416,6 +478,40 @@ input {
   .room-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .removal-notice {
+    display: flex;
+    margin: 0 0 22px;
+    padding: 11px 12px 11px 14px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid #633b46;
+    border-radius: 8px;
+    background: #38252d;
+    color: #ffb0b0;
+    font-size: 0.88rem;
+  }
+
+  .removal-notice-close {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    flex-shrink: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .removal-notice-close:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .room-header-actions {

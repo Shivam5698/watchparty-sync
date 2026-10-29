@@ -26,18 +26,52 @@ interface RoomEventPayload {
   participants: Participant[];
 }
 
+interface RoleAssignedPayload extends RoomEventPayload {
+  userId: string;
+  username: string;
+  role: Role;
+}
+
+interface ParticipantRemovedPayload extends RoomEventPayload {
+  userId: string;
+}
+
+interface HostTransferredPayload extends RoomEventPayload {
+  fromUserId: string;
+  toUserId: string;
+}
+
 interface ActionDeniedPayload {
   action: string;
   message: string;
+}
+
+function withParticipants(
+  room: RoomInfo,
+  participants: Participant[],
+): RoomInfo {
+  const currentUser = participants.find(
+    (participant) => participant.userId === room.userId,
+  );
+  return {
+    ...room,
+    participants,
+    role: currentUser?.role ?? room.role,
+  };
 }
 
 interface RoomContextValue {
   connected: boolean;
   room: RoomInfo | null;
   notice: string | null;
+  removalNotice: string | null;
   createRoom: (username: string) => Promise<string>;
   joinRoom: (roomId: string, username: string) => Promise<void>;
   leaveRoom: () => void;
+  clearRemovalNotice: () => void;
+  assignRole: (userId: string, role: Role) => void;
+  removeParticipant: (userId: string) => void;
+  transferHost: (userId: string) => void;
   sendPlay: (currentTime: number) => void;
   sendPause: (currentTime: number) => void;
   sendSeek: (time: number) => void;
@@ -56,6 +90,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
   const [connected, setConnected] = useState(false);
   const [room, setRoom] = useState<RoomInfo | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [removalNotice, setRemovalNotice] = useState<string | null>(null);
+  const roomRef = useRef<RoomInfo | null>(room);
+  roomRef.current = room;
   const noticeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -79,7 +116,51 @@ export function RoomProvider({ children }: RoomProviderProps) {
     const handleRoomUpdate = (payload: RoomEventPayload) => {
       setRoom((currentRoom) =>
         currentRoom
-          ? { ...currentRoom, participants: payload.participants }
+          ? withParticipants(currentRoom, payload.participants)
+          : null,
+      );
+    };
+    const handleRoleAssigned = (payload: RoleAssignedPayload) => {
+      if (roomRef.current?.userId === payload.userId) {
+        setNotice(
+          payload.role === "moderator"
+            ? "You are now a Moderator"
+            : "You are now a Participant",
+        );
+      }
+
+      setRoom((currentRoom) =>
+        currentRoom
+          ? withParticipants(currentRoom, payload.participants)
+          : null,
+      );
+    };
+    const handleParticipantRemoved = (
+      payload: ParticipantRemovedPayload,
+    ) => {
+      if (roomRef.current?.userId === payload.userId) {
+        setRoom(null);
+        setRemovalNotice("You were removed from the room by the host");
+        return;
+      }
+
+      setRoom((currentRoom) =>
+        currentRoom
+          ? withParticipants(currentRoom, payload.participants)
+          : null,
+      );
+    };
+    const handleHostTransferred = (payload: HostTransferredPayload) => {
+      const newHost = payload.participants.find(
+        (participant) => participant.userId === payload.toUserId,
+      );
+      if (newHost) {
+        setNotice(`${newHost.username} is now the host`);
+      }
+
+      setRoom((currentRoom) =>
+        currentRoom
+          ? withParticipants(currentRoom, payload.participants)
           : null,
       );
     };
@@ -90,6 +171,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
     socket.on("user_left", handleRoomUpdate);
     socket.on("sync_state", handleSyncState);
     socket.on("action_denied", handleActionDenied);
+    socket.on("role_assigned", handleRoleAssigned);
+    socket.on("participant_removed", handleParticipantRemoved);
+    socket.on("host_transferred", handleHostTransferred);
     setConnected(socket.connected);
     socket.connect();
 
@@ -100,6 +184,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
       socket.off("user_left", handleRoomUpdate);
       socket.off("sync_state", handleSyncState);
       socket.off("action_denied", handleActionDenied);
+      socket.off("role_assigned", handleRoleAssigned);
+      socket.off("participant_removed", handleParticipantRemoved);
+      socket.off("host_transferred", handleHostTransferred);
       if (noticeTimeout.current) {
         clearTimeout(noticeTimeout.current);
       }
@@ -151,6 +238,22 @@ export function RoomProvider({ children }: RoomProviderProps) {
     setRoom(null);
   }, []);
 
+  const clearRemovalNotice = useCallback(() => {
+    setRemovalNotice(null);
+  }, []);
+
+  const assignRole = useCallback((userId: string, role: Role) => {
+    socket.emit("assign_role", { userId, role });
+  }, []);
+
+  const removeParticipant = useCallback((userId: string) => {
+    socket.emit("remove_participant", { userId });
+  }, []);
+
+  const transferHost = useCallback((userId: string) => {
+    socket.emit("transfer_host", { userId });
+  }, []);
+
   const sendPlay = useCallback((currentTime: number) => {
     socket.emit("play", { currentTime });
   }, []);
@@ -173,9 +276,14 @@ export function RoomProvider({ children }: RoomProviderProps) {
         connected,
         room,
         notice,
+        removalNotice,
         createRoom,
         joinRoom,
         leaveRoom,
+        clearRemovalNotice,
+        assignRole,
+        removeParticipant,
+        transferHost,
         sendPlay,
         sendPause,
         sendSeek,

@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ParticipantList from "../components/ParticipantList";
+import RoleBadge from "../components/RoleBadge";
 import VideoPlayer from "../components/VideoPlayer";
 import { useRoom } from "../hooks/useRoom";
 import { canControlPlayback } from "../utils/permissions";
@@ -16,12 +17,22 @@ function RoomPage() {
     sendSeek,
     sendChangeVideo,
     notice,
+    assignRole,
+    removeParticipant,
+    transferHost,
+    removalNotice,
   } = useRoom();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (removalNotice) {
+      navigate("/", { replace: true });
+    }
+  }, [removalNotice, navigate]);
 
   const handleJoin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,7 +106,10 @@ function RoomPage() {
   return (
     <main className="room-layout">
       <header className="room-header">
-        <h1>Room {room.roomId}</h1>
+        <div className="room-title-area">
+          <h1>Room {room.roomId}</h1>
+          <RoleBadge role={room.role} />
+        </div>
         <div className="room-header-actions">
           <button
             className="action-button secondary-button room-action-button"
@@ -132,6 +146,10 @@ function RoomPage() {
           <ParticipantList
             participants={room.participants}
             currentUserId={room.userId}
+            isHost={room.role === "host"}
+            onAssignRole={assignRole}
+            onRemove={removeParticipant}
+            onTransferHost={transferHost}
           />
         </section>
         <VideoPlayer

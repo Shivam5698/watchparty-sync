@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useRoom } from "../hooks/useRoom";
 
 function HomePage() {
-  const { connected, createRoom, joinRoom } = useRoom();
+  const {
+    connected,
+    createRoom,
+    joinRoom,
+    removalNotice,
+    clearRemovalNotice,
+  } = useRoom();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -50,6 +56,19 @@ function HomePage() {
   return (
     <main className="home-page">
       <section className="home-card">
+        {removalNotice && (
+          <div className="removal-notice" role="status">
+            <span>{removalNotice}</span>
+            <button
+              className="removal-notice-close"
+              type="button"
+              aria-label="Dismiss removal notice"
+              onClick={clearRemovalNotice}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <h1>WatchParty Sync</h1>
 
         {!connected && (
