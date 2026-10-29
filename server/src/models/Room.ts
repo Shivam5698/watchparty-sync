@@ -1,5 +1,5 @@
 import { Participant } from "./Participant";
-import type { ParticipantDTO, VideoState } from "../types/events";
+import type { ParticipantDTO, Role, VideoState } from "../types/events";
 
 export class Room {
   private participants = new Map<string, Participant>();
@@ -24,6 +24,57 @@ export class Room {
 
   getParticipant(id: string): Participant | undefined {
     return this.participants.get(id);
+  }
+
+  setRole(userId: string, role: Role): boolean {
+    const participant = this.participants.get(userId);
+    if (!participant) {
+      return false;
+    }
+
+    participant.role = role;
+    return true;
+  }
+
+  transferHost(fromId: string, toId: string): boolean {
+    const currentHost = this.participants.get(fromId);
+    const nextHost = this.participants.get(toId);
+    if (
+      !currentHost ||
+      currentHost.role !== "host" ||
+      !nextHost ||
+      fromId === toId
+    ) {
+      return false;
+    }
+
+    // Demote any stale extra hosts so the successful transfer leaves one host.
+    for (const participant of this.participants.values()) {
+      if (participant.role === "host") {
+        participant.role = "moderator";
+      }
+    }
+    currentHost.role = "moderator";
+    nextHost.role = "host";
+    return true;
+  }
+
+  promoteNextHost(): Participant | undefined {
+    if (this.getHost()) {
+      return undefined;
+    }
+
+    const promoted =
+      Array.from(this.participants.values()).find(
+        (participant) => participant.role === "moderator",
+      ) ?? this.participants.values().next().value;
+    if (!promoted) {
+      return undefined;
+    }
+
+    // Map iteration preserves insertion order for deterministic promotion.
+    promoted.role = "host";
+    return promoted;
   }
 
   getParticipants(): ParticipantDTO[] {

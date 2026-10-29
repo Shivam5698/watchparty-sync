@@ -117,10 +117,21 @@ export class RoomHandler {
 
     const { room, participant } = result;
     await this.socket.leave(room.code);
+    const newHost =
+      participant.role === "host" && !room.isEmpty()
+        ? room.promoteNextHost()
+        : undefined;
     this.io.to(room.code).emit("user_left", {
       username: participant.username,
       userId: this.socket.id,
       participants: room.getParticipants(),
     });
+    if (newHost) {
+      this.io.to(room.code).emit("host_transferred", {
+        fromUserId: participant.id,
+        toUserId: newHost.id,
+        participants: room.getParticipants(),
+      });
+    }
   }
 }
