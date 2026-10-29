@@ -3,6 +3,7 @@ import type { Participant } from "../models/Participant";
 import type { Room } from "../models/Room";
 import { can, type Action } from "../permissions/rolePermissions";
 import { roomManager } from "../services/RoomManager";
+import { broadcastRequests } from "../services/requestNotifier";
 
 interface RoleHandlerContext {
   room: Room;
@@ -85,6 +86,7 @@ export class RoleHandler {
       role,
       participants: room.getParticipants(),
     });
+    broadcastRequests(this.io, room);
   }
 
   private handleRemoveParticipant(payload: unknown): void {
@@ -125,6 +127,7 @@ export class RoleHandler {
       participants: room.getParticipants(),
     });
     void this.io.sockets.sockets.get(userId)?.leave(room.code);
+    broadcastRequests(this.io, room);
   }
 
   private handleTransferHost(payload: unknown): void {
@@ -163,6 +166,7 @@ export class RoleHandler {
       toUserId: userId,
       participants: room.getParticipants(),
     });
+    broadcastRequests(this.io, room);
   }
 
   private deny(action: Action, message: string): void {

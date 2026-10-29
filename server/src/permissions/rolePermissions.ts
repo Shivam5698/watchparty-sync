@@ -7,7 +7,8 @@ export type Action =
   | "change_video"
   | "assign_role"
   | "remove_participant"
-  | "transfer_host";
+  | "transfer_host"
+  | "resolve_request";
 
 const roleActions: Record<Role, Action[]> = {
   host: [
@@ -18,8 +19,9 @@ const roleActions: Record<Role, Action[]> = {
     "assign_role",
     "remove_participant",
     "transfer_host",
+    "resolve_request",
   ],
-  moderator: ["play", "pause", "seek", "change_video"],
+  moderator: ["play", "pause", "seek", "change_video", "resolve_request"],
   participant: [],
 };
 

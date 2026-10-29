@@ -1,8 +1,17 @@
 import { Participant } from "./Participant";
-import type { ParticipantDTO, Role, VideoState } from "../types/events";
+import { randomUUID } from "node:crypto";
+import type {
+  ChatMessage,
+  ParticipantDTO,
+  PlaybackRequest,
+  Role,
+  VideoState,
+} from "../types/events";
 
 export class Room {
   private participants = new Map<string, Participant>();
+  private pendingRequests = new Map<string, PlaybackRequest>();
+  private chat: ChatMessage[] = [];
   private videoState: VideoState = {
     videoId: null,
     playState: "paused",
@@ -19,7 +28,66 @@ export class Room {
   removeParticipant(id: string): Participant | undefined {
     const participant = this.participants.get(id);
     this.participants.delete(id);
+    for (const [requestId, request] of this.pendingRequests) {
+      if (request.userId === id) {
+        this.pendingRequests.delete(requestId);
+      }
+    }
     return participant;
+  }
+
+  addRequest(
+    userId: string,
+    action: PlaybackRequest["action"],
+    payload: PlaybackRequest["payload"],
+  ): PlaybackRequest | null {
+    const participant = this.participants.get(userId);
+    if (
+      !participant ||
+      Array.from(this.pendingRequests.values()).some(
+        (request) => request.userId === userId,
+      )
+    ) {
+      return null;
+    }
+
+    const request: PlaybackRequest = {
+      id: randomUUID(),
+      userId,
+      username: participant.username,
+      action,
+      payload,
+      createdAt: Date.now(),
+    };
+    this.pendingRequests.set(request.id, request);
+    return request;
+  }
+
+  getRequest(id: string): PlaybackRequest | undefined {
+    return this.pendingRequests.get(id);
+  }
+
+  removeRequest(id: string): PlaybackRequest | undefined {
+    const request = this.pendingRequests.get(id);
+    this.pendingRequests.delete(id);
+    return request;
+  }
+
+  getRequests(): PlaybackRequest[] {
+    return Array.from(this.pendingRequests.values()).sort(
+      (first, second) => first.createdAt - second.createdAt,
+    );
+  }
+
+  addChatMessage(msg: ChatMessage): void {
+    this.chat.push(msg);
+    if (this.chat.length > 50) {
+      this.chat.splice(0, this.chat.length - 50);
+    }
+  }
+
+  getChat(): ChatMessage[] {
+    return this.chat;
   }
 
   getParticipant(id: string): Participant | undefined {

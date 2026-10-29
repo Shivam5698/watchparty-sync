@@ -1,6 +1,13 @@
 import type { Server, Socket } from "socket.io";
 import { roomManager } from "../services/RoomManager";
-import type { Ack, ParticipantDTO, Role, VideoState } from "../types/events";
+import { broadcastRequests } from "../services/requestNotifier";
+import type {
+  Ack,
+  ChatMessage,
+  ParticipantDTO,
+  Role,
+  VideoState,
+} from "../types/events";
 
 interface CreateRoomResult {
   roomId: string;
@@ -11,6 +18,7 @@ interface CreateRoomResult {
 
 interface JoinRoomResult extends CreateRoomResult {
   videoState: VideoState;
+  chatHistory: ChatMessage[];
 }
 
 export class RoomHandler {
@@ -81,6 +89,7 @@ export class RoomHandler {
           role: "participant",
           participants,
           videoState: room.getVideoState(),
+          chatHistory: room.getChat(),
         });
         this.socket.to(room.code).emit("user_joined", {
           username,
@@ -133,5 +142,6 @@ export class RoomHandler {
         participants: room.getParticipants(),
       });
     }
+    broadcastRequests(this.io, room);
   }
 }

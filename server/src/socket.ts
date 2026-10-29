@@ -1,7 +1,9 @@
 import type { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import { env } from "./config/env";
+import { ChatHandler } from "./handlers/ChatHandler";
 import { PlaybackHandler } from "./handlers/PlaybackHandler";
+import { RequestHandler } from "./handlers/RequestHandler";
 import { RoleHandler } from "./handlers/RoleHandler";
 import { RoomHandler } from "./handlers/RoomHandler";
 
@@ -15,6 +17,8 @@ export function initSocket(httpServer: HttpServer): Server {
     new RoomHandler(io, socket).register();
     new PlaybackHandler(io, socket).register();
     new RoleHandler(io, socket).register();
+    new RequestHandler(io, socket).register();
+    new ChatHandler(io, socket).register();
 
     socket.on("disconnect", (reason) => {
       console.log(`Socket disconnected: ${socket.id} (${reason})`);
