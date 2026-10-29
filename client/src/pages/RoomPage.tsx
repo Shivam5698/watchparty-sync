@@ -1,1 +1,128 @@
-// Watch party room page for synchronized video, chat, and participants.
+import { useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import ParticipantList from "../components/ParticipantList";
+import { useRoom } from "../hooks/useRoom";
+
+function RoomPage() {
+  const { roomId = "" } = useParams();
+  const { room, joinRoom, leaveRoom } = useRoom();
+  const navigate = useNavigate();
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const handleJoin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      await joinRoom(roomId, username);
+    } catch (joinError) {
+      setError(
+        joinError instanceof Error ? joinError.message : "Unable to join room",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("Unable to copy invite link");
+    }
+  };
+
+  const handleLeave = () => {
+    leaveRoom();
+    navigate("/");
+  };
+
+  if (!room || room.roomId !== roomId) {
+    return (
+      <main className="home-page">
+        <section className="home-card join-room-card">
+          <h1>Join Room {roomId}</h1>
+          <form onSubmit={handleJoin}>
+            <label className="field-label" htmlFor="room-username">
+              Username
+            </label>
+            <input
+              id="room-username"
+              className="text-input"
+              type="text"
+              maxLength={20}
+              autoComplete="nickname"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="Enter your name"
+            />
+            <button
+              className="action-button primary-button"
+              type="submit"
+              disabled={loading || username.trim().length === 0}
+            >
+              {loading ? "Joining..." : "Join"}
+            </button>
+          </form>
+          {error && (
+            <p className="error-message" role="alert">
+              {error}
+            </p>
+          )}
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="room-layout">
+      <header className="room-header">
+        <h1>Room {room.roomId}</h1>
+        <div className="room-header-actions">
+          <button
+            className="action-button secondary-button room-action-button"
+            type="button"
+            onClick={handleCopyInvite}
+          >
+            {copied ? "Copied!" : "Copy invite link"}
+          </button>
+          <button
+            className="action-button leave-button room-action-button"
+            type="button"
+            onClick={handleLeave}
+          >
+            Leave
+          </button>
+        </div>
+      </header>
+
+      {error && (
+        <p className="error-message room-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="room-content">
+        <section className="room-panel participants-panel">
+          <h2>Participants ({room.participants.length})</h2>
+          <ParticipantList
+            participants={room.participants}
+            currentUserId={room.userId}
+          />
+        </section>
+        <section className="video-placeholder">
+          Video player coming in Phase 3
+        </section>
+      </div>
+    </main>
+  );
+}
+
+export default RoomPage;
