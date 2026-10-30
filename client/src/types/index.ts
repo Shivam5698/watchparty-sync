@@ -40,6 +40,13 @@ export interface Participant {
   role: Role;
 }
 
+export interface Reaction {
+  id: string;
+  userId: string;
+  username: string;
+  emoji: string;
+}
+
 export interface RoomInfo {
   roomId: string;
   userId: string;

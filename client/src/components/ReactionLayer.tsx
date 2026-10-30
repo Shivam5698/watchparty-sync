@@ -26,7 +26,11 @@ export default function ReactionLayer({ subscribe }: ReactionLayerProps) {
         sway: (Math.random() - 0.5) * 28,
       };
 
-      setItems((current) => [...current, bubble].slice(-30));
+      setItems((current) => {
+        const nextItems = [...current, bubble];
+        return nextItems.slice(-30);
+      });
+
       window.setTimeout(() => {
         setItems((current) => current.filter((item) => item.id !== reaction.id));
       }, 3000);

@@ -12,6 +12,7 @@ import type {
   Participant,
   PlaybackAction,
   PlaybackRequest,
+  Reaction,
   Role,
   RoomInfo,
   RoomNotice,
@@ -98,6 +99,7 @@ interface RoomContextValue {
   hasPendingRequest: boolean;
   chat: ChatMessage[];
   reconnecting: boolean;
+  subscribeReactions: (handler: (reaction: Reaction) => void) => () => void;
   createRoom: (username: string) => Promise<string>;
   joinRoom: (roomId: string, username: string) => Promise<void>;
   leaveRoom: () => void;
@@ -111,6 +113,8 @@ interface RoomContextValue {
   ) => Promise<void>;
   resolveRequest: (requestId: string, approve: boolean) => void;
   sendChat: (text: string) => Promise<void>;
+  sendReaction: (emoji: string) => void;
+  requestSync: () => Promise<VideoState | null>;
   sendPlay: (currentTime: number) => void;
   sendPause: (currentTime: number) => void;
   sendSeek: (time: number) => void;
@@ -134,6 +138,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [reconnecting, setReconnecting] = useState(false);
+  const reactionListeners = useRef<Set<(reaction: Reaction) => void>>(new Set());
   const roomRef = useRef<RoomInfo | null>(room);
   roomRef.current = room;
   const session = useRef<RoomSession | null>(null);
@@ -216,6 +221,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
         noticeTimeout.current = null;
       }, 3000);
     };
+    const handleReaction = (reaction: Reaction) => {
+      reactionListeners.current.forEach((handler) => handler(reaction));
+    };
     const handleRoomUpdate = (payload: RoomEventPayload) => {
       setRoom((currentRoom) =>
         currentRoom
@@ -284,6 +292,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
     socket.on("user_left", handleRoomUpdate);
     socket.on("sync_state", handleSyncState);
     socket.on("action_denied", handleActionDenied);
+    socket.on("reaction", handleReaction);
     socket.on("role_assigned", handleRoleAssigned);
     socket.on("participant_removed", handleParticipantRemoved);
     socket.on("host_transferred", handleHostTransferred);
@@ -300,6 +309,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
       socket.off("user_left", handleRoomUpdate);
       socket.off("sync_state", handleSyncState);
       socket.off("action_denied", handleActionDenied);
+      socket.off("reaction", handleReaction);
       socket.off("role_assigned", handleRoleAssigned);
       socket.off("participant_removed", handleParticipantRemoved);
       socket.off("host_transferred", handleHostTransferred);
@@ -380,6 +390,16 @@ export function RoomProvider({ children }: RoomProviderProps) {
     setHasPendingRequest(false);
   }, []);
 
+  const subscribeReactions = useCallback(
+    (handler: (reaction: Reaction) => void) => {
+      reactionListeners.current.add(handler);
+      return () => {
+        reactionListeners.current.delete(handler);
+      };
+    },
+    [],
+  );
+
   const clearRemovalNotice = useCallback(() => {
     setRemovalNotice(null);
   }, []);
@@ -438,6 +458,20 @@ export function RoomProvider({ children }: RoomProviderProps) {
     [],
   );
 
+  const sendReaction = useCallback((emoji: string) => {
+    socket.emit("send_reaction", { emoji });
+  }, []);
+
+  const requestSync = useCallback(
+    () =>
+      new Promise<VideoState | null>((resolve) => {
+        socket.emit("request_sync", (ack: RoomAck<{ videoState: VideoState }>) => {
+          resolve(ack.ok ? ack.videoState : null);
+        });
+      }),
+    [],
+  );
+
   const sendPlay = useCallback((currentTime: number) => {
     socket.emit("play", { currentTime });
   }, []);
@@ -465,6 +499,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
         hasPendingRequest,
         chat,
         reconnecting,
+        subscribeReactions,
         createRoom,
         joinRoom,
         leaveRoom,
@@ -475,6 +510,8 @@ export function RoomProvider({ children }: RoomProviderProps) {
         sendRequest,
         resolveRequest,
         sendChat,
+        sendReaction,
+        requestSync,
         sendPlay,
         sendPause,
         sendSeek,

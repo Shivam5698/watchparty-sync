@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ChatMessage, PlaybackRequest, RoomNotice } from "../types";
+import type {
+  ChatMessage,
+  PlaybackRequest,
+  Reaction,
+  RoomNotice,
+} from "../types";
 import RequestControls from "./RequestControls";
 import FloatingChat from "./FloatingChat";
+import ReactionBar from "./ReactionBar";
+import ReactionLayer from "./ReactionLayer";
 import { useYouTubePlayer } from "../hooks/useYouTubePlayer";
 import type { PlaybackAction, VideoState } from "../types";
 import { extractVideoId } from "../utils/youtube";
@@ -50,6 +57,7 @@ interface VideoPlayerProps {
   onSeek: (time: number) => void;
   onChangeVideo: (videoId: string) => void;
   onRequest?: (action: PlaybackAction, payload: object) => Promise<void>;
+  onRequestSync: () => Promise<VideoState | null>;
   hasPendingRequest?: boolean;
   messages: ChatMessage[];
   currentUserId: string;
@@ -57,6 +65,8 @@ interface VideoPlayerProps {
   notice: RoomNotice | null;
   requests: PlaybackRequest[];
   isHost: boolean;
+  onReact: (emoji: string) => void;
+  subscribeReactions: (handler: (reaction: Reaction) => void) => () => void;
 }
 
 export default function VideoPlayer({
@@ -67,6 +77,7 @@ export default function VideoPlayer({
   onSeek,
   onChangeVideo,
   onRequest,
+  onRequestSync,
   hasPendingRequest = false,
   messages,
   currentUserId,
@@ -74,6 +85,8 @@ export default function VideoPlayer({
   notice,
   requests,
   isHost,
+  onReact,
+  subscribeReactions,
 }: VideoPlayerProps) {
   const playerWrapRef = useRef<HTMLDivElement>(null);
   const [videoUrl, setVideoUrl] = useState("");
@@ -82,6 +95,8 @@ export default function VideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasSubmittedVideo, setHasSubmittedVideo] = useState(false);
   const [requestNotice, setRequestNotice] = useState<RoomNotice | null>(null);
+  const [isResyncing, setIsResyncing] = useState(false);
+  const [resyncStatus, setResyncStatus] = useState<"idle" | "synced" | "error">("idle");
   const requestNoticeId = useRef(0);
   const previousRequestIds = useRef(
     new Set(requests.map((request) => request.id)),
@@ -110,6 +125,28 @@ export default function VideoPlayer({
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isReady || canControl) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      void onRequestSync().then((state) => {
+        if (state) {
+          applyState(state);
+        }
+      });
+    }, 20000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [applyState, canControl, isReady, onRequestSync]);
 
   useEffect(() => {
     const newRequest = requests.find(
@@ -174,6 +211,32 @@ export default function VideoPlayer({
     }
   };
 
+  const handleRequestSync = async () => {
+    if (isResyncing) {
+      return;
+    }
+
+    setIsResyncing(true);
+    setResyncStatus("idle");
+
+    const state = await onRequestSync();
+    if (state) {
+      applyState(state);
+      setResyncStatus("synced");
+      window.setTimeout(() => {
+        setResyncStatus("idle");
+        setIsResyncing(false);
+      }, 2000);
+      return;
+    }
+
+    setResyncStatus("error");
+    window.setTimeout(() => {
+      setResyncStatus("idle");
+      setIsResyncing(false);
+    }, 2000);
+  };
+
   return (
     <section className="video-player">
       <div className="video-player-frame" ref={playerWrapRef}>
@@ -222,6 +285,7 @@ export default function VideoPlayer({
             onSendChat={onSendChat}
           />
         )}
+        {isFullscreen && <ReactionLayer subscribe={subscribeReactions} />}
         <button
           className="btn btn-ghost video-fullscreen-button"
           type="button"
@@ -251,6 +315,11 @@ export default function VideoPlayer({
             </svg>
           )}
         </button>
+        {isFullscreen && (
+          <div className="video-reaction-bar-wrapper">
+            <ReactionBar onReact={onReact} compact />
+          </div>
+        )}
         {notice && <RequestNotice key={notice.id} notice={notice} />}
         {fullscreenError && (
           <div
@@ -337,6 +406,27 @@ export default function VideoPlayer({
           getCurrentTime={getCurrentTime}
           hasPending={hasPendingRequest}
         />
+      )}
+      <div className="video-controls-actions">
+        <button
+          className="btn btn-ghost video-resync-button"
+          type="button"
+          onClick={() => void handleRequestSync()}
+          disabled={isResyncing}
+        >
+          {isResyncing
+            ? "Syncing..."
+            : resyncStatus === "synced"
+              ? "Synced ✓"
+              : resyncStatus === "error"
+                ? "Couldn't sync"
+                : "↻ Resync"}
+        </button>
+      </div>
+      {!isFullscreen && (
+        <div className="video-reaction-bar-row">
+          <ReactionBar onReact={onReact} />
+        </div>
       )}
     </section>
   );

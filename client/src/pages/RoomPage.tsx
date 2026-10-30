@@ -28,6 +28,9 @@ function RoomPage() {
     sendRequest,
     resolveRequest,
     sendChat,
+    sendReaction,
+    subscribeReactions,
+    requestSync,
   } = useRoom();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -146,6 +149,7 @@ function RoomPage() {
             onSeek={sendSeek}
             onChangeVideo={sendChangeVideo}
             onRequest={sendRequest}
+            onRequestSync={requestSync}
             hasPendingRequest={hasPendingRequest}
             messages={chat}
             currentUserId={room.userId}
@@ -153,6 +157,8 @@ function RoomPage() {
             notice={notice}
             requests={requests}
             isHost={room.role === "host"}
+            onReact={sendReaction}
+            subscribeReactions={subscribeReactions}
           />
         </section>
         <Sidebar
