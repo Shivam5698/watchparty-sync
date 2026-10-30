@@ -291,21 +291,37 @@ export default function VideoPlayer({
           />
         )}
         <ReactionLayer subscribe={subscribeReactions} />
-        {isFullscreen && (
-          <div className="video-fullscreen-dock">
-            <button
-              className="video-fullscreen-resync"
-              type="button"
-              aria-label="Resync"
-              title="Resync"
-              onClick={() => void handleRequestSync()}
-              disabled={isResyncing}
-            >
-              ↻
-            </button>
-            <ReactionBar onReact={onReact} vertical />
-          </div>
-        )}
+        <div
+          className="video-fullscreen-dock"
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: 12,
+            bottom: "auto",
+            left: "auto",
+            width: "auto",
+            height: "auto",
+            transform: "translateY(-50%)",
+            zIndex: 5,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 8,
+            pointerEvents: "auto",
+          }}
+        >
+          <button
+            className="video-fullscreen-resync"
+            type="button"
+            aria-label="Resync"
+            title="Resync"
+            onClick={() => void handleRequestSync()}
+            disabled={isResyncing}
+          >
+            ↻
+          </button>
+          {isFullscreen && <ReactionBar onReact={onReact} vertical />}
+        </div>
         <button
           className="btn btn-ghost video-fullscreen-button"
           type="button"
