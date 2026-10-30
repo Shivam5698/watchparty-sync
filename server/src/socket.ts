@@ -3,9 +3,11 @@ import { Server } from "socket.io";
 import { env } from "./config/env";
 import { ChatHandler } from "./handlers/ChatHandler";
 import { PlaybackHandler } from "./handlers/PlaybackHandler";
+import { ReactionHandler } from "./handlers/ReactionHandler";
 import { RequestHandler } from "./handlers/RequestHandler";
 import { RoleHandler } from "./handlers/RoleHandler";
 import { RoomHandler } from "./handlers/RoomHandler";
+import { SyncHandler } from "./handlers/SyncHandler";
 
 export function initSocket(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
@@ -19,6 +21,8 @@ export function initSocket(httpServer: HttpServer): Server {
     new RoleHandler(io, socket).register();
     new RequestHandler(io, socket).register();
     new ChatHandler(io, socket).register();
+    new ReactionHandler(io, socket).register();
+    new SyncHandler(io, socket).register();
 
     socket.on("disconnect", (reason) => {
       console.log(`Socket disconnected: ${socket.id} (${reason})`);
