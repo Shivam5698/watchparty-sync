@@ -14,21 +14,38 @@ export class PlaybackHandler {
   ) {}
 
   register(): void {
-    this.socket.on("play", (payload: unknown) =>
-      this.handleAction("play", payload),
-    );
-    this.socket.on("pause", (payload: unknown) =>
-      this.handleAction("pause", payload),
-    );
-    this.socket.on("seek", (payload: unknown) =>
-      this.handleAction("seek", payload),
-    );
-    this.socket.on("change_video", (payload: unknown) =>
-      this.handleAction("change_video", payload),
-    );
+    this.socket.on("play", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleAction("play", payload);
+    });
+    this.socket.on("pause", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleAction("pause", payload);
+    });
+    this.socket.on("seek", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleAction("seek", payload);
+    });
+    this.socket.on("change_video", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleAction("change_video", payload);
+    });
   }
 
   private handleAction(action: PlaybackAction, payload: unknown): void {
+    if (typeof payload !== "object" || payload === null) {
+      this.socket.emit("action_denied", { action, message: "Invalid data" });
+      return;
+    }
+
     const roomCode = roomManager.getRoomCodeBySocket(this.socket.id);
     if (!roomCode) {
       return;

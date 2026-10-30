@@ -17,15 +17,24 @@ export class RoleHandler {
   ) {}
 
   register(): void {
-    this.socket.on("assign_role", (payload: unknown) =>
-      this.handleAssignRole(payload),
-    );
-    this.socket.on("remove_participant", (payload: unknown) =>
-      this.handleRemoveParticipant(payload),
-    );
-    this.socket.on("transfer_host", (payload: unknown) =>
-      this.handleTransferHost(payload),
-    );
+    this.socket.on("assign_role", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleAssignRole(payload);
+    });
+    this.socket.on("remove_participant", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleRemoveParticipant(payload);
+    });
+    this.socket.on("transfer_host", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleTransferHost(payload);
+    });
   }
 
   private resolveContext(action: Action): RoleHandlerContext | null {

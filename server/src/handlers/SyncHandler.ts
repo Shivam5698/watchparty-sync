@@ -12,6 +12,9 @@ export class SyncHandler {
 
   register(): void {
     this.socket.on("request_sync", (ack: SyncAck) => {
+      if (typeof ack !== "function") {
+        return;
+      }
       const roomCode = roomManager.getRoomCodeBySocket(this.socket.id);
       const room = roomCode ? roomManager.getRoom(roomCode) : undefined;
       const participant = room?.getParticipant(this.socket.id);

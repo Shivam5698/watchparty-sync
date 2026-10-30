@@ -31,6 +31,14 @@ export class RoomHandler {
     this.socket.on(
       "create_room",
       (payload: { username: string }, ack: Ack<CreateRoomResult>) => {
+        if (typeof ack !== "function") {
+          return;
+        }
+        if (typeof payload !== "object" || payload === null) {
+          ack({ ok: false, error: "Username must be 1 to 20 characters" });
+          return;
+        }
+
         const username = this.validateUsername(payload?.username);
         if (!username) {
           ack({ ok: false, error: "Username must be 1 to 20 characters" });
@@ -60,6 +68,14 @@ export class RoomHandler {
         payload: { roomId: string; username: string },
         ack: Ack<JoinRoomResult>,
       ) => {
+        if (typeof ack !== "function") {
+          return;
+        }
+        if (typeof payload !== "object" || payload === null) {
+          ack({ ok: false, error: "Room not found" });
+          return;
+        }
+
         const username = this.validateUsername(payload?.username);
         if (!username) {
           ack({ ok: false, error: "Username must be 1 to 20 characters" });

@@ -12,12 +12,24 @@ export class ChatHandler {
   ) {}
 
   register(): void {
-    this.socket.on("chat_message", (payload: unknown, ack: Ack) =>
-      this.handleChatMessage(payload, ack),
-    );
+    this.socket.on("chat_message", (payload: unknown, ack: Ack) => {
+      if (typeof ack !== "function") {
+        return;
+      }
+      if (typeof payload !== "object" && payload !== null) {
+        ack({ ok: false, error: "Message must be 1-300 characters" });
+        return;
+      }
+      this.handleChatMessage(payload, ack);
+    });
   }
 
   private handleChatMessage(payload: unknown, ack: Ack): void {
+    if (typeof payload !== "object" || payload === null) {
+      ack({ ok: false, error: "Message must be 1-300 characters" });
+      return;
+    }
+
     const roomCode = roomManager.getRoomCodeBySocket(this.socket.id);
     const room = roomCode ? roomManager.getRoom(roomCode) : undefined;
     const actor = room?.getParticipant(this.socket.id);

@@ -25,18 +25,30 @@ export class RequestHandler {
   register(): void {
     this.socket.on(
       "request_action",
-      (payload: unknown, ack: Ack<{ requestId: string }>) =>
-        this.handleRequestAction(payload, ack),
+      (payload: unknown, ack: Ack<{ requestId: string }>) => {
+        if (typeof ack !== "function") {
+          return;
+        }
+        this.handleRequestAction(payload, ack);
+      },
     );
-    this.socket.on("resolve_request", (payload: unknown) =>
-      this.handleResolveRequest(payload),
-    );
+    this.socket.on("resolve_request", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleResolveRequest(payload);
+    });
   }
 
   private handleRequestAction(
     payload: unknown,
     ack: Ack<{ requestId: string }>,
   ): void {
+    if (typeof payload !== "object" || payload === null) {
+      ack({ ok: false, error: "Invalid request" });
+      return;
+    }
+
     const roomCode = roomManager.getRoomCodeBySocket(this.socket.id);
     const room = roomCode ? roomManager.getRoom(roomCode) : undefined;
     const actor = room?.getParticipant(this.socket.id);

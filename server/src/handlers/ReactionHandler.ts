@@ -14,9 +14,12 @@ export class ReactionHandler {
   ) {}
 
   register(): void {
-    this.socket.on("send_reaction", (payload: unknown) =>
-      this.handleReaction(payload),
-    );
+    this.socket.on("send_reaction", (payload: unknown) => {
+      if (typeof payload !== "object" && payload !== null) {
+        return;
+      }
+      this.handleReaction(payload);
+    });
   }
 
   private handleReaction(payload: unknown): void {
