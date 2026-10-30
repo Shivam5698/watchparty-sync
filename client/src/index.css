@@ -1402,7 +1402,7 @@ select:focus-visible {
 .video-player-frame {
   display: grid;
   width: 100%;
-  max-height: min(100vh - 220px, 760px);
+  max-height: min(100vh - 330px, 760px);
   aspect-ratio: 16 / 9;
   place-items: center;
   border: 0;
