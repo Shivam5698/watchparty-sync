@@ -151,6 +151,8 @@ function RoomPage() {
             currentUserId={room.userId}
             onSendChat={sendChat}
             notice={notice}
+            requests={requests}
+            isHost={room.role === "host"}
           />
         </section>
         <Sidebar

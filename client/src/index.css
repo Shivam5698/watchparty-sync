@@ -1577,7 +1577,7 @@ select:focus-visible {
   box-shadow: none;
 }
 
-.video-player-frame:fullscreen > div:not(.video-player-hint):not(.video-player-control-overlay):not(.floating-chat) {
+.video-player-frame:fullscreen > div:not(.video-player-hint):not(.video-player-control-overlay):not(.floating-chat):not(.video-notice-toast) {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1682,6 +1682,17 @@ select:focus-visible {
 .video-notice-toast.video-notice-error {
   border-color: rgba(239, 68, 68, 0.45);
   color: #ffaaaa;
+}
+
+.video-notice-toast.request-update-toast {
+  position: absolute;
+  z-index: 5;
+  top: 16px;
+  right: 16px;
+  left: auto;
+  width: max-content;
+  max-width: min(280px, calc(100% - 32px));
+  transform: none;
 }
 
 .floating-chat-list {

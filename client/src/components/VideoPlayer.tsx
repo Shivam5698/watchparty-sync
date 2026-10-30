@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ChatMessage, RoomNotice } from "../types";
+import type { ChatMessage, PlaybackRequest, RoomNotice } from "../types";
 import RequestControls from "./RequestControls";
 import FloatingChat from "./FloatingChat";
 import { useYouTubePlayer } from "../hooks/useYouTubePlayer";
@@ -8,9 +8,10 @@ import { extractVideoId } from "../utils/youtube";
 
 interface RequestNoticeProps {
   notice: RoomNotice;
+  className?: string;
 }
 
-function RequestNotice({ notice }: RequestNoticeProps) {
+function RequestNotice({ notice, className = "" }: RequestNoticeProps) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -23,7 +24,11 @@ function RequestNotice({ notice }: RequestNoticeProps) {
   }
 
   return (
-    <div className="video-notice-toast" key={notice.id} role="status">
+    <div
+      className={`video-notice-toast ${className}`.trim()}
+      key={notice.id}
+      role="status"
+    >
       <span>{notice.text}</span>
       <button
         className="video-notice-close"
@@ -50,6 +55,8 @@ interface VideoPlayerProps {
   currentUserId: string;
   onSendChat: (text: string) => Promise<void>;
   notice: RoomNotice | null;
+  requests: PlaybackRequest[];
+  isHost: boolean;
 }
 
 export default function VideoPlayer({
@@ -65,6 +72,8 @@ export default function VideoPlayer({
   currentUserId,
   onSendChat,
   notice,
+  requests,
+  isHost,
 }: VideoPlayerProps) {
   const playerWrapRef = useRef<HTMLDivElement>(null);
   const [videoUrl, setVideoUrl] = useState("");
@@ -72,6 +81,11 @@ export default function VideoPlayer({
   const [fullscreenError, setFullscreenError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasSubmittedVideo, setHasSubmittedVideo] = useState(false);
+  const [requestNotice, setRequestNotice] = useState<RoomNotice | null>(null);
+  const requestNoticeId = useRef(0);
+  const previousRequestIds = useRef(
+    new Set(requests.map((request) => request.id)),
+  );
   const { isReady, applyState, getCurrentTime } = useYouTubePlayer({
     containerRef: playerWrapRef,
     canControl,
@@ -96,6 +110,28 @@ export default function VideoPlayer({
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
+
+  useEffect(() => {
+    const newRequest = requests.find(
+      (request) => !previousRequestIds.current.has(request.id),
+    );
+    previousRequestIds.current = new Set(
+      requests.map((request) => request.id),
+    );
+
+    if (!isHost || !newRequest) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      requestNoticeId.current += 1;
+      setRequestNotice({
+        id: requestNoticeId.current,
+        text: `New request from ${newRequest.username}: ${newRequest.action}`,
+      });
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [isHost, requests]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -172,6 +208,13 @@ export default function VideoPlayer({
             </div>
           )}
         {!canControl && <div className="video-player-control-overlay" />}
+        {isHost && requestNotice && (
+          <RequestNotice
+            key={requestNotice.id}
+            notice={requestNotice}
+            className="request-update-toast"
+          />
+        )}
         {isFullscreen && (
           <FloatingChat
             messages={messages}
