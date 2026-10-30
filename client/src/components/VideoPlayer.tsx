@@ -219,22 +219,27 @@ export default function VideoPlayer({
     setIsResyncing(true);
     setResyncStatus("idle");
 
-    const state = await onRequestSync();
-    if (state) {
-      applyState(state);
-      setResyncStatus("synced");
+    const timeoutMs = 5000;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      window.setTimeout(() => resolve(null), timeoutMs);
+    });
+
+    try {
+      const state = await Promise.race([onRequestSync(), timeoutPromise]);
+      if (state) {
+        applyState(state);
+        setResyncStatus("synced");
+      } else {
+        setResyncStatus("error");
+      }
+    } catch {
+      setResyncStatus("error");
+    } finally {
       window.setTimeout(() => {
         setResyncStatus("idle");
         setIsResyncing(false);
       }, 2000);
-      return;
     }
-
-    setResyncStatus("error");
-    window.setTimeout(() => {
-      setResyncStatus("idle");
-      setIsResyncing(false);
-    }, 2000);
   };
 
   return (
@@ -285,7 +290,22 @@ export default function VideoPlayer({
             onSendChat={onSendChat}
           />
         )}
-        {isFullscreen && <ReactionLayer subscribe={subscribeReactions} />}
+        <ReactionLayer subscribe={subscribeReactions} />
+        {isFullscreen && (
+          <div className="video-fullscreen-dock">
+            <button
+              className="video-fullscreen-resync"
+              type="button"
+              aria-label="Resync"
+              title="Resync"
+              onClick={() => void handleRequestSync()}
+              disabled={isResyncing}
+            >
+              ↻
+            </button>
+            <ReactionBar onReact={onReact} vertical />
+          </div>
+        )}
         <button
           className="btn btn-ghost video-fullscreen-button"
           type="button"
@@ -315,11 +335,6 @@ export default function VideoPlayer({
             </svg>
           )}
         </button>
-        {isFullscreen && (
-          <div className="video-reaction-bar-wrapper">
-            <ReactionBar onReact={onReact} compact />
-          </div>
-        )}
         {notice && <RequestNotice key={notice.id} notice={notice} />}
         {fullscreenError && (
           <div
