@@ -14,6 +14,7 @@ import type {
   PlaybackRequest,
   Role,
   RoomInfo,
+  RoomNotice,
   VideoState,
 } from "../types";
 
@@ -91,7 +92,7 @@ function withParticipants(
 interface RoomContextValue {
   connected: boolean;
   room: RoomInfo | null;
-  notice: string | null;
+  notice: RoomNotice | null;
   removalNotice: string | null;
   requests: PlaybackRequest[];
   hasPendingRequest: boolean;
@@ -127,7 +128,7 @@ interface RoomProviderProps {
 export function RoomProvider({ children }: RoomProviderProps) {
   const [connected, setConnected] = useState(false);
   const [room, setRoom] = useState<RoomInfo | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<RoomNotice | null>(null);
   const [removalNotice, setRemovalNotice] = useState<string | null>(null);
   const [requests, setRequests] = useState<PlaybackRequest[]>([]);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
@@ -173,7 +174,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
           setRequests([]);
           setHasPendingRequest(false);
           setReconnecting(false);
-          setNotice("Reconnected");
+          setNotice({ id: Date.now(), text: "Reconnected" });
         },
       );
     };
@@ -194,20 +195,24 @@ export function RoomProvider({ children }: RoomProviderProps) {
     };
     const handleRequestResolved = (payload: RequestResolvedPayload) => {
       setHasPendingRequest(false);
-      setNotice(
-        `Your request was ${payload.approved ? "approved" : "rejected"} by ${payload.byUsername}`,
-      );
+      setNotice({
+        id: Date.now(),
+        text: `Your request was ${payload.approved ? "approved" : "rejected"} by ${payload.byUsername}`,
+      });
     };
     const handleChatMessage = (message: ChatMessage) => {
       setChat((currentChat) => [...currentChat, message].slice(-100));
     };
     const handleActionDenied = ({ message }: ActionDeniedPayload) => {
-      setNotice(message);
+      const currentNotice = { id: Date.now(), text: message };
+      setNotice(currentNotice);
       if (noticeTimeout.current) {
         clearTimeout(noticeTimeout.current);
       }
       noticeTimeout.current = setTimeout(() => {
-        setNotice(null);
+        setNotice((notice) =>
+          notice?.id === currentNotice.id ? null : notice,
+        );
         noticeTimeout.current = null;
       }, 3000);
     };
@@ -220,11 +225,13 @@ export function RoomProvider({ children }: RoomProviderProps) {
     };
     const handleRoleAssigned = (payload: RoleAssignedPayload) => {
       if (roomRef.current?.userId === payload.userId) {
-        setNotice(
-          payload.role === "moderator"
-            ? "You are now a Moderator"
-            : "You are now a Participant",
-        );
+        setNotice({
+          id: Date.now(),
+          text:
+            payload.role === "moderator"
+              ? "You are now a Moderator"
+              : "You are now a Participant",
+        });
       }
 
       setRoom((currentRoom) =>
@@ -258,7 +265,10 @@ export function RoomProvider({ children }: RoomProviderProps) {
         (participant) => participant.userId === payload.toUserId,
       );
       if (newHost) {
-        setNotice(`${newHost.username} is now the host`);
+        setNotice({
+          id: Date.now(),
+          text: `${newHost.username} is now the host`,
+        });
       }
 
       setRoom((currentRoom) =>

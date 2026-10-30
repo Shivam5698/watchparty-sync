@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { Participant, Role } from "../types";
+import Avatar from "./Avatar";
 import RoleBadge from "./RoleBadge";
 
 interface ParticipantListBaseProps {
@@ -25,6 +27,7 @@ const roleOrder: Record<Role, number> = {
 
 function ParticipantList(props: CompatibleParticipantListProps) {
   const { participants, currentUserId } = props;
+  const [openMenuUserId, setOpenMenuUserId] = useState<string | null>(null);
   const isHost = "isHost" in props && props.isHost;
   const onAssignRole =
     "onAssignRole" in props ? props.onAssignRole : () => {};
@@ -41,65 +44,91 @@ function ParticipantList(props: CompatibleParticipantListProps) {
         const isCurrentUser = participant.userId === currentUserId;
         const showActions =
           isHost && !isCurrentUser && participant.role !== "host";
+        const targetRole =
+          participant.role === "participant" ? "moderator" : "participant";
 
         return (
           <li className="participant-item" key={participant.userId}>
-            <span className="participant-name">
-              {participant.username}
-              {isCurrentUser && (
-                <span className="current-user-tag"> (You)</span>
-              )}
-            </span>
+            <div className="participant-info">
+              <Avatar username={participant.username} />
+              <span className="participant-name">
+                {participant.username}
+                {isCurrentUser && (
+                  <span className="current-user-tag"> (You)</span>
+                )}
+              </span>
+            </div>
             <div className="participant-row-details">
+              <RoleBadge role={participant.role} />
               {showActions && (
-                <div className="participant-actions">
-                  <select
-                    className="participant-role-select"
-                    aria-label={`Role for ${participant.username}`}
-                    value={participant.role}
-                    onChange={(event) => {
-                      const role = event.target.value;
-                      if (role === "moderator" || role === "participant") {
-                        onAssignRole(participant.userId, role);
-                      }
-                    }}
-                  >
-                    <option value="moderator">Moderator</option>
-                    <option value="participant">Participant</option>
-                  </select>
+                <div className="participant-menu-wrap">
                   <button
-                    className="participant-action-button make-host-button"
+                    className="btn btn-ghost btn-sm participant-menu-trigger"
                     type="button"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Transfer host to ${participant.username}?`,
-                        )
-                      ) {
-                        onTransferHost(participant.userId);
-                      }
-                    }}
+                    aria-haspopup="menu"
+                    aria-label={`Actions for ${participant.username}`}
+                    aria-expanded={openMenuUserId === participant.userId}
+                    onClick={() =>
+                      setOpenMenuUserId((userId) =>
+                        userId === participant.userId
+                          ? null
+                          : participant.userId,
+                      )
+                    }
                   >
-                    Make host
+                    ⋯
                   </button>
-                  <button
-                    className="participant-action-button remove-participant-button"
-                    type="button"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Remove ${participant.username} from the room?`,
-                        )
-                      ) {
-                        onRemove(participant.userId);
-                      }
-                    }}
-                  >
-                    Remove
-                  </button>
+                  {openMenuUserId === participant.userId && (
+                    <div className="participant-menu" role="menu">
+                      <button
+                        className="participant-menu-item"
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          onAssignRole(participant.userId, targetRole);
+                          setOpenMenuUserId(null);
+                        }}
+                      >
+                        Make {targetRole}
+                      </button>
+                      <button
+                        className="participant-menu-item"
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Transfer host to ${participant.username}?`,
+                            )
+                          ) {
+                            onTransferHost(participant.userId);
+                          }
+                          setOpenMenuUserId(null);
+                        }}
+                      >
+                        Transfer host
+                      </button>
+                      <button
+                        className="participant-menu-item participant-menu-danger"
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Remove ${participant.username} from the room?`,
+                            )
+                          ) {
+                            onRemove(participant.userId);
+                          }
+                          setOpenMenuUserId(null);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-              <RoleBadge role={participant.role} />
             </div>
           </li>
         );

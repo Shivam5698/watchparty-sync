@@ -29,7 +29,7 @@ export default function PendingRequests({
   onResolve,
 }: PendingRequestsProps) {
   return (
-    <section className="pending-requests">
+    <section className="pending-requests card">
       <h2>Pending requests ({requests.length})</h2>
       {requests.length === 0 ? (
         <p className="pending-requests-empty">No pending requests</p>
@@ -43,14 +43,14 @@ export default function PendingRequests({
               </div>
               <div className="pending-request-actions">
                 <button
-                  className="pending-request-button approve-request-button"
+                  className="btn btn-sm pending-request-button approve-request-button"
                   type="button"
                   onClick={() => onResolve(request.id, true)}
                 >
                   Approve
                 </button>
                 <button
-                  className="pending-request-button reject-request-button"
+                  className="btn btn-danger btn-sm pending-request-button reject-request-button"
                   type="button"
                   onClick={() => onResolve(request.id, false)}
                 >

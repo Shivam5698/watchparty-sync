@@ -54,7 +54,7 @@ export default function ChatBox({
   };
 
   return (
-    <section className="chat-box">
+    <section className="chat-box card">
       <h2>Chat</h2>
       <ul className="chat-message-list" ref={messageListRef}>
         {messages.map((message) => {
@@ -67,7 +67,9 @@ export default function ChatBox({
               <article className="chat-message">
                 <header className="chat-message-header">
                   <strong>{message.username}</strong>
-                  <span className={`chat-role-tag chat-role-${message.role}`}>
+                  <span
+                    className={`badge badge-${message.role} chat-role-tag`}
+                  >
                     {message.role}
                   </span>
                   <time dateTime={new Date(message.timestamp).toISOString()}>
@@ -82,7 +84,7 @@ export default function ChatBox({
       </ul>
       <form className="chat-compose-form" onSubmit={handleSubmit}>
         <input
-          className="text-input chat-message-input"
+          className="input text-input chat-message-input"
           type="text"
           maxLength={300}
           value={text}
@@ -91,7 +93,7 @@ export default function ChatBox({
           aria-label="Chat message"
         />
         <button
-          className="action-button primary-button chat-send-button"
+          className="btn btn-primary action-button primary-button chat-send-button"
           type="submit"
           disabled={sending || text.trim().length === 0}
         >

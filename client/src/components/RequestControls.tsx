@@ -79,75 +79,85 @@ export default function RequestControls({
   };
 
   return (
-    <section className="request-controls" aria-label="Playback requests">
-      <div className="request-playback-buttons">
+    <section
+      className="request-controls video-controls-card card"
+      aria-label="Playback requests"
+    >
+      <div className="request-controls-row">
         <button
-          className="request-control-button"
+          className="btn btn-ghost request-control-button request-play-button"
           type="button"
           disabled={hasPending}
+          aria-label="Request play"
           onClick={() =>
             void submitRequest("play", { currentTime: getCurrentTime() })
           }
         >
-          Request play
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M4 2.7c0-.6.7-1 1.2-.7l8 5.3a.8.8 0 0 1 0 1.4l-8 5.3c-.5.3-1.2 0-1.2-.7V2.7Z" />
+          </svg>
+          <span>Play</span>
         </button>
         <button
-          className="request-control-button"
+          className="btn btn-ghost request-control-button request-pause-button"
           type="button"
           disabled={hasPending}
+          aria-label="Request pause"
           onClick={() =>
             void submitRequest("pause", { currentTime: getCurrentTime() })
           }
         >
-          Request pause
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <rect x="3" y="2.5" width="3.5" height="11" rx="1" />
+            <rect x="9.5" y="2.5" width="3.5" height="11" rx="1" />
+          </svg>
+          <span>Pause</span>
         </button>
-      </div>
-
-      <form className="request-form" onSubmit={handleSeek}>
-        <label htmlFor="request-seek-time">Seek time</label>
-        <div className="request-form-controls">
+        <form className="request-inline-form" onSubmit={handleSeek}>
+          <label className="visually-hidden" htmlFor="request-seek-time">
+            Seek time
+          </label>
           <input
             id="request-seek-time"
-            className="text-input request-input"
+            className="input text-input request-input request-seek-input"
             type="text"
             value={seekInput}
             onChange={(event) => setSeekInput(event.target.value)}
-            placeholder="mm:ss or seconds"
+            placeholder="mm:ss"
           />
           <button
-            className="request-control-button"
+            className="btn btn-ghost request-control-button"
             type="submit"
             disabled={hasPending}
           >
-            Request seek
+            Seek
           </button>
-        </div>
-      </form>
-
-      <form className="request-form" onSubmit={handleVideo}>
-        <label htmlFor="request-video-url">YouTube link</label>
-        <div className="request-form-controls">
+        </form>
+        <form className="request-inline-form request-video-form" onSubmit={handleVideo}>
+          <label className="visually-hidden" htmlFor="request-video-url">
+            YouTube link
+          </label>
           <input
             id="request-video-url"
-            className="text-input request-input"
+            className="input text-input request-input"
             type="text"
             value={videoUrl}
             onChange={(event) => setVideoUrl(event.target.value)}
             placeholder="Paste a YouTube link"
           />
           <button
-            className="request-control-button"
+            className="btn btn-ghost request-control-button"
             type="submit"
             disabled={hasPending}
           >
             Request video
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
 
       {hasPending && (
         <p className="request-pending-message">
-          Request pending... waiting for host or moderator
+          Request pending…
         </p>
       )}
       {validationError && (

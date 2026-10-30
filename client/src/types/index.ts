@@ -1,5 +1,10 @@
 export type Role = "host" | "moderator" | "participant";
 
+export interface RoomNotice {
+  id: number;
+  text: string;
+}
+
 export type PlayState = "playing" | "paused";
 
 export type PlaybackAction = "play" | "pause" | "seek" | "change_video";

@@ -1,9 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import ChatBox from "../components/ChatBox";
-import ParticipantList from "../components/ParticipantList";
-import PendingRequests from "../components/PendingRequests";
-import RoleBadge from "../components/RoleBadge";
+import Sidebar from "../components/Sidebar";
+import TopBar from "../components/TopBar";
 import VideoPlayer from "../components/VideoPlayer";
 import { useRoom } from "../hooks/useRoom";
 import { canControlPlayback } from "../utils/permissions";
@@ -36,6 +34,7 @@ function RoomPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (removalNotice) {
@@ -78,7 +77,7 @@ function RoomPage() {
   if (!room || room.roomId !== roomId) {
     return (
       <main className="home-page">
-        <section className="home-card join-room-card">
+        <section className="home-card card join-room-card">
           <h1>Join Room {roomId}</h1>
           <form onSubmit={handleJoin}>
             <label className="field-label" htmlFor="room-username">
@@ -86,7 +85,7 @@ function RoomPage() {
             </label>
             <input
               id="room-username"
-              className="text-input"
+              className="input text-input"
               type="text"
               maxLength={20}
               autoComplete="nickname"
@@ -95,7 +94,7 @@ function RoomPage() {
               placeholder="Enter your name"
             />
             <button
-              className="action-button primary-button"
+              className="btn btn-primary action-button primary-button"
               type="submit"
               disabled={loading || username.trim().length === 0}
             >
@@ -113,15 +112,21 @@ function RoomPage() {
   }
 
   return (
-    <main className="room-layout">
+    <main
+      className={`room-layout${sidebarCollapsed ? " sidebar-is-collapsed" : ""}`}
+    >
+      <TopBar
+        roomId={room.roomId}
+        participants={room.participants}
+        role={room.role}
+        copied={copied}
+        onCopyInvite={handleCopyInvite}
+        onLeave={handleLeave}
+      />
+
       {reconnecting && (
         <p className="reconnecting-banner" role="status">
           Connection lost. Reconnecting...
-        </p>
-      )}
-      {notice && (
-        <p className="room-notice" role="status">
-          {notice}
         </p>
       )}
 
@@ -133,28 +138,6 @@ function RoomPage() {
 
       <div className="room-content">
         <section className="room-main-column">
-          <header className="room-header">
-            <div className="room-title-area">
-              <h1>Room {room.roomId}</h1>
-              <RoleBadge role={room.role} />
-            </div>
-            <div className="room-header-actions">
-              <button
-                className="action-button secondary-button room-action-button"
-                type="button"
-                onClick={handleCopyInvite}
-              >
-                {copied ? "Copied!" : "Copy invite link"}
-              </button>
-              <button
-                className="action-button leave-button room-action-button"
-                type="button"
-                onClick={handleLeave}
-              >
-                Leave
-              </button>
-            </div>
-          </header>
           <VideoPlayer
             videoState={room.videoState}
             canControl={canControlPlayback(room.role)}
@@ -164,29 +147,26 @@ function RoomPage() {
             onChangeVideo={sendChangeVideo}
             onRequest={sendRequest}
             hasPendingRequest={hasPendingRequest}
-          />
-        </section>
-        <aside className="room-sidebar">
-          <section className="room-panel participants-panel">
-            <h2>Participants ({room.participants.length})</h2>
-            <ParticipantList
-              participants={room.participants}
-              currentUserId={room.userId}
-              isHost={room.role === "host"}
-              onAssignRole={assignRole}
-              onRemove={removeParticipant}
-              onTransferHost={transferHost}
-            />
-          </section>
-          {canControlPlayback(room.role) && (
-            <PendingRequests requests={requests} onResolve={resolveRequest} />
-          )}
-          <ChatBox
             messages={chat}
             currentUserId={room.userId}
-            onSend={sendChat}
+            onSendChat={sendChat}
+            notice={notice}
           />
-        </aside>
+        </section>
+        <Sidebar
+          role={room.role}
+          participants={room.participants}
+          currentUserId={room.userId}
+          requests={requests}
+          chat={chat}
+          onAssignRole={assignRole}
+          onRemoveParticipant={removeParticipant}
+          onTransferHost={transferHost}
+          onResolveRequest={resolveRequest}
+          onSendChat={sendChat}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
+        />
       </div>
     </main>
   );

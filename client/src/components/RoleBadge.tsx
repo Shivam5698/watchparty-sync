@@ -12,7 +12,7 @@ const roleLabels: Record<Role, string> = {
 
 function RoleBadge({ role }: RoleBadgeProps) {
   return (
-    <span className={`role-badge role-badge-${role}`}>{roleLabels[role]}</span>
+    <span className={`badge badge-${role}`}>{roleLabels[role]}</span>
   );
 }
 

@@ -29,6 +29,7 @@ interface YouTubePlayerApi {
       height: string;
       playerVars: {
         controls: number;
+        fs: number;
         rel: number;
         modestbranding: number;
         playsinline: number;
@@ -149,6 +150,7 @@ export function useYouTubePlayer({
           height: "100%",
           playerVars: {
             controls: 1,
+            fs: 0,
             rel: 0,
             modestbranding: 1,
             playsinline: 1,
